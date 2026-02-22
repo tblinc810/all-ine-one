@@ -1,59 +1,72 @@
-# Kolla-Ansible Network Configuration Tool
+# Kolla-Ansible OpenStack Deployment Tools
 
-This repository contains `network.sh`, a specialized script designed to automate the complex networking requirements for **Kolla-Ansible OpenStack** deployments. 
+This repository contains a specialized set of scripts designed to automate the complex requirements for **Kolla-Ansible OpenStack** deployments on fresh PC/Server environments.
 
-It handles kernel optimization, interface persistence, and validation in a single pass.
+## 🚀 Scripts Overview
+
+### 1. `deployment.sh` (The Orchestrator)
+This is the main entry point. It calls the other scripts and prepares the high-level Kolla-Ansible stack.
+*   **Action**: Installs the **Stable 2025.2** branch from source.
+*   **Result**: Creates an `openstack` folder, initializes `/etc/kolla/`, and generates passwords.
+
+### 2. `network.sh` (Networking Engine)
+Handles kernel optimizations and the creation of persistent interfaces.
+*   **Action**: Optimizes Sysctl, enables IP Forwarding, and creates a persistent `dummy0` interface.
+
+### 3. `docker.sh` (Container Engine)
+Installs and optimizes Docker explicitly for OpenStack workloads.
+*   **Action**: Installs Docker Engine, enforces `overlay2`, and sets log limits.
 
 ---
 
-## 🚀 Quick Start (All-In-One)
+## 🏎 Quick Start (Full Setup)
 
-For a fresh installation on a new PC or server, simply run the script with sudo privileges:
+To prepare a completely fresh system in one command:
 
 ```bash
-sudo sh network.sh
+sh deployment.sh
 ```
 
-**What this does:**
-1.  **Optimizes Sysctl**: Sets ephemeral port ranges, file descriptors, and neighbor table thresholds.
-2.  **Enables IP Forwarding**: Safely enables IPv4 routing required for Neutron.
-3.  **Creates `dummy0`**: Deploys a dummy interface used for the Neutron external bridge.
-4.  **Ensures Persistence**: Configures both **Netplan** and **Systemd** to ensure settings survive reboots.
-5.  **Installs Dependencies**: Only runs `apt update` if `bridge-utils` or `net-tools` are missing.
+**Workflow executed:**
+1.  **Preparation**: Runs `network.sh` and `docker.sh`.
+2.  **Environment Setup**: Installs Kolla-Ansible 2025.2 Stable in `/opt/.venv`.
+3.  **Service Configuration**: Configures `globals.yml` to enable a massive suite of services (Aodh, Cinder, Nova, Skyline, Zun, etc.).
+4.  **Deployment**: 
+    -   `bootstrap-servers`
+    -   `prechecks`
+    -   `deploy` (Full cluster rollout)
+5.  **Initialization**: 
+    -   Installs `python-openstackclient`.
+    -   `post-deploy` logic.
+    -   `init-runonce` to create default flavors and images.
 
 ---
 
 ## 🛠 Advanced Commands
 
-The script supports explicit commands for lifecycle management:
+Each script supports specific commands for manual control:
 
 | Command | Usage | Description |
 | :--- | :--- | :--- |
-| **Setup** | `sudo sh network.sh setup` | Explicitly runs the configuration routine. |
-| **Show** | `sh network.sh show` | Displays interface status, forwarding state, and sysctl values. |
-| **Remove** | `sudo sh network.sh remove` | Reverts all changes, deletes interfaces, and restores defaults. |
+| **Setup** | `sh <script>.sh setup` | Explicitly runs the configuration routine. |
+| **Show** | `sh <script>.sh show` | Displays the current status of that component. |
+| **Perms** | `sh <script>.sh perms` | Manually fixes permissions (NICs or Docker socket). |
+| **Remove** | `sh <script>.sh remove` | Cleans up and reverts changes for that component. |
 
 ---
 
-## 📋 System Validation
+## 📋 Validation
 
-To verify your configuration at any time:
+Check your environment any time with:
 ```bash
+sh deployment.sh status
 sh network.sh show
+sh docker.sh show
 ```
-
-If the system is in its default state, the script will report:
-> *No Kolla optimizations detected. System is using default kernel parameters.*
 
 ---
 
 ## 🔍 Troubleshooting
 
-### Interface Missing After Reboot
-If `dummy0` does not appear after a restart, check the persistence service:
-```bash
-sudo systemctl status dummy-dev.service
-```
-
-### APT Connection Errors
-If you see connection warnings during setup, the script will automatically continue if the necessary packages (`bridge-utils`, `net-tools`) are already installed on your system.
+*   **Permissions**: If Docker commands fail without sudo, run `newgrp docker`.
+*   **Reboots**: Interfaces created by `network.sh` are persistent. If they go missing, check `systemctl status dummy-dev.service`.
